@@ -1,0 +1,111 @@
+---
+title: "American Airlines Analysis"
+author: "Adam El-Kadi"
+format: html
+---
+
+```{python}
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import time
+from nltk.sentiment import SentimentIntensityAnalyzer
+import matplotlib.pyplot as plt
+import seaborn as sns
+import nltk
+nltk.download('vader_lexicon')
+```
+
+```{python}
+# Defining urls
+aurl = "https://www.airlinequality.com/airline-reviews/american-airlines/page/"
+uurl = "https://www.airlinequality.com/airline-reviews/united-airlines/page/"
+durl = "https://www.airlinequality.com/airline-reviews/delta-air-lines/page/"
+surl = "https://www.airlinequality.com/airline-reviews/southwest-airlines/page/"
+```
+
+```{python}
+# Base URLs for each airline
+airlines = {
+    "American Airlines": aurl,
+    "United Airlines": uurl,
+    "Delta Airlines": durl,
+    "Southwest Airlines": surl
+}
+
+# Headers to mimic a browser request
+headers = {"User-Agent": "Mozilla/5.0"}
+
+# Number of pages to scrape per airline
+num_pages = 10  
+
+# List to store all reviews
+data = []
+
+# Loop through each airline
+for airline, base_url in airlines.items():
+    for page in range(1, num_pages + 1):
+        url = f"{base_url}{page}/"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200:
+            print(f"❌ Failed to retrieve page {page} for {airline}")
+            continue
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        reviews = soup.find_all("div", class_="text_content")  
+        
+        for review in reviews:
+            text = review.get_text(strip=True)
+            data.append({"Airline": airline, "Review": text})
+
+        print(f"✅ Scraped page {page} for {airline}, total reviews collected: {len(data)}")
+
+        # Pause to prevent blocking
+        time.sleep(2)  
+
+# Convert to DataFrame
+df = pd.DataFrame(data)
+```
+
+```{python}
+# Display first few rows 
+df.head()
+```
+
+```{python}
+# Display last few rows
+df.tail()
+```
+
+```{python}
+# Initialize Sentiment Analyzer
+sia = SentimentIntensityAnalyzer()
+
+# Function to get sentiment score
+def get_sentiment(review):
+    return sia.polarity_scores(review)["compound"]
+
+# Apply sentiment analysis
+df["Sentiment Score"] = df["Review"].apply(get_sentiment)
+
+# Categorize sentiment
+df["Sentiment Category"] = df["Sentiment Score"].apply(lambda x: "Positive" if x > 0.05 else "Negative" if x < -0.05 else "Neutral")
+
+# Group by airline and get average sentiment score
+airline_ranking = df.groupby("Airline")["Sentiment Score"].mean().sort_values(ascending=False).reset_index()
+
+# Print ranking
+print("\n📊 Airline Ranking by Sentiment Score:\n")
+print(airline_ranking)
+
+# 🔹 **Visualization: Sentiment Distribution**
+plt.figure(figsize=(10, 6))
+sns.barplot(x="Sentiment Score", y="Airline", data=airline_ranking, palette="coolwarm")
+plt.title("✈️ Airline Ranking by Sentiment Score")
+plt.xlabel("Average Sentiment Score")
+plt.ylabel("Airline")
+plt.xlim(-1, 1) 
+plt.show()
+
+```
