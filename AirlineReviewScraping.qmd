@@ -1,0 +1,73 @@
+---
+title: "Airline Review Scraping"
+author: "Adam El-Kadi"
+format: html
+---
+
+```{python}
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import time
+from nltk.sentiment import SentimentIntensityAnalyzer
+import matplotlib.pyplot as plt
+import seaborn as sns
+import nltk
+nltk.download('vader_lexicon')
+```
+
+```{python}
+# Defining urls
+aurl = "https://www.airlinequality.com/airline-reviews/american-airlines/page/"
+uurl = "https://www.airlinequality.com/airline-reviews/united-airlines/page/"
+durl = "https://www.airlinequality.com/airline-reviews/delta-air-lines/page/"
+surl = "https://www.airlinequality.com/airline-reviews/southwest-airlines/page/"
+```
+
+```{python}
+# URLs for each airline
+airlines = {
+    "American Airlines": aurl,
+    "United Airlines": uurl,
+    "Delta Airlines": durl,
+    "Southwest Airlines": surl
+}
+
+# Headers to mimic a browser request
+headers = {"User-Agent": "Mozilla/5.0"}
+
+# Number of pages to scrape per airline
+num_pages = 100  
+
+# List to store all reviews
+data = []
+
+# Loop through each airline
+for airline, base_url in airlines.items():
+    for page in range(1, num_pages + 1):
+        url = f"{base_url}{page}/"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200:
+            print(f"❌ Failed to retrieve page {page} for {airline}")
+            continue
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        reviews = soup.find_all("div", class_="text_content")  
+        
+        for review in reviews:
+            text = review.get_text(strip=True)
+            data.append({"Airline": airline, "Review": text})
+
+        print(f"✅ Scraped page {page} for {airline}, total reviews collected: {len(data)}")
+
+        # Pause to prevent blocking
+        time.sleep(2)  
+
+# Convert to DataFrame
+df = pd.DataFrame(data)
+```
+```{python}
+df.to_csv("airline_reviews.csv", index=False, encoding="utf-8")
+```
+
