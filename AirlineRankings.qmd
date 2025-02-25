@@ -1,14 +1,13 @@
 ---
-title: "American Airlines Analysis"
+title: "Airline Rankings by Sentiment Score"
 author: "Adam El-Kadi"
 format: html
 ---
 
 ```{python}
-import requests
-from bs4 import BeautifulSoup
-import pandas as pd
-import time
+# This script will actually run the analysis of each airline through public sentiment
+# Importing necessary libraries
+import pandas as pd  
 from nltk.sentiment import SentimentIntensityAnalyzer
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -17,55 +16,8 @@ nltk.download('vader_lexicon')
 ```
 
 ```{python}
-# Defining urls
-aurl = "https://www.airlinequality.com/airline-reviews/american-airlines/page/"
-uurl = "https://www.airlinequality.com/airline-reviews/united-airlines/page/"
-durl = "https://www.airlinequality.com/airline-reviews/delta-air-lines/page/"
-surl = "https://www.airlinequality.com/airline-reviews/southwest-airlines/page/"
-```
-
-```{python}
-# Base URLs for each airline
-airlines = {
-    "American Airlines": aurl,
-    "United Airlines": uurl,
-    "Delta Airlines": durl,
-    "Southwest Airlines": surl
-}
-
-# Headers to mimic a browser request
-headers = {"User-Agent": "Mozilla/5.0"}
-
-# Number of pages to scrape per airline
-num_pages = 10  
-
-# List to store all reviews
-data = []
-
-# Loop through each airline
-for airline, base_url in airlines.items():
-    for page in range(1, num_pages + 1):
-        url = f"{base_url}{page}/"
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code != 200:
-            print(f"❌ Failed to retrieve page {page} for {airline}")
-            continue
-        
-        soup = BeautifulSoup(response.text, "html.parser")
-        reviews = soup.find_all("div", class_="text_content")  
-        
-        for review in reviews:
-            text = review.get_text(strip=True)
-            data.append({"Airline": airline, "Review": text})
-
-        print(f"✅ Scraped page {page} for {airline}, total reviews collected: {len(data)}")
-
-        # Pause to prevent blocking
-        time.sleep(2)  
-
-# Convert to DataFrame
-df = pd.DataFrame(data)
+# Load data
+df = pd.read_csv("~/Desktop/UDA/Project/airline_reviews.csv")
 ```
 
 ```{python}
@@ -82,30 +34,56 @@ df.tail()
 # Initialize Sentiment Analyzer
 sia = SentimentIntensityAnalyzer()
 
-# Function to get sentiment score
+# Building function to get sentiment score
 def get_sentiment(review):
     return sia.polarity_scores(review)["compound"]
 
-# Apply sentiment analysis
+# Applying sentiment analysis
 df["Sentiment Score"] = df["Review"].apply(get_sentiment)
 
-# Categorize sentiment
+# Categorizing sentiment
 df["Sentiment Category"] = df["Sentiment Score"].apply(lambda x: "Positive" if x > 0.05 else "Negative" if x < -0.05 else "Neutral")
 
-# Group by airline and get average sentiment score
+# Grouping by airline to get average sentiment score
 airline_ranking = df.groupby("Airline")["Sentiment Score"].mean().sort_values(ascending=False).reset_index()
 
-# Print ranking
+# Printing ranking with some fun emojis
 print("\n📊 Airline Ranking by Sentiment Score:\n")
 print(airline_ranking)
 
-# 🔹 **Visualization: Sentiment Distribution**
+# Visualization of Sentiment Distribution
 plt.figure(figsize=(10, 6))
 sns.barplot(x="Sentiment Score", y="Airline", data=airline_ranking, palette="coolwarm")
 plt.title("✈️ Airline Ranking by Sentiment Score")
 plt.xlabel("Average Sentiment Score")
 plt.ylabel("Airline")
 plt.xlim(-1, 1) 
+plt.show()
+
+```
+
+
+```{python}
+from wordcloud import WordCloud
+
+# Separate positive and negative reviews
+positive_reviews = " ".join(df[df["Sentiment Score"] > 0]["Review"])
+negative_reviews = " ".join(df[df["Sentiment Score"] < 0]["Review"])
+
+# Generate word clouds
+wordcloud_positive = WordCloud(width=800, height=400, background_color="white").generate(positive_reviews)
+wordcloud_negative = WordCloud(width=800, height=400, background_color="black", colormap="Reds").generate(negative_reviews)
+
+# Fun graphic to display word clouds side by side (with more emojis of course)
+fig, ax = plt.subplots(1, 2, figsize=(16, 6))
+ax[0].imshow(wordcloud_positive, interpolation="bilinear")
+ax[0].set_title("😊 Positive Review Words")
+ax[0].axis("off")
+
+ax[1].imshow(wordcloud_negative, interpolation="bilinear")
+ax[1].set_title("😡 Negative Review Words")
+ax[1].axis("off")
+
 plt.show()
 
 ```
